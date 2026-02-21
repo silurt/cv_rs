@@ -1,0 +1,13 @@
+[workspace]
+members = [
+  "packages/core",
+  "packages/render",
+  "packages/cli"
+]
+resolver = "2"
+
+[workspace.dependencies]
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }
+oxidize-pdf = "1.7.1"
+serde_json = "1.0.149"
