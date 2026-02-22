@@ -1,6 +1,6 @@
 use core::schema::types::CVSchema;
 
-use crate::template::types::{Element, ElementSet};
+use crate::{element::types::Element, element_set::types::ElementSet};
 
 pub fn build_element_set(s: &CVSchema) -> ElementSet {
     let mut out = ElementSet::new();
