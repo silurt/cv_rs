@@ -10,7 +10,7 @@ pub fn render(schema: &CVSchema) -> Result<Document, anyhow::Error> {
     let mut doc = Document::new();
     doc.set_title(&format!("{}'s CV", &schema.person.name));
 
-    render_element_set(build_element_set(schema), &mut doc)?;
+    render_element_set(build_element_set(schema), &mut doc, None)?;
 
     Ok(doc)
 }
