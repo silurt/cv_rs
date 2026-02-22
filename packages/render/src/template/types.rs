@@ -33,11 +33,16 @@ impl ElementSet {
 }
 
 #[derive(Clone)]
-pub struct Style {
+pub struct FontConfig {
     pub font: Font,
-    pub display_size: f64,
-    pub title_size: f64,
-    pub body_size: f64,
+    pub size: f64,
+}
+
+#[derive(Clone)]
+pub struct Style {
+    pub display: FontConfig,
+    pub title: FontConfig,
+    pub body: FontConfig,
     pub margin: f64,
     pub element_spacing: f64,
 }
@@ -45,10 +50,18 @@ pub struct Style {
 impl Default for Style {
     fn default() -> Self {
         Self {
-            font: Font::Helvetica,
-            display_size: 30.0,
-            title_size: 14.0,
-            body_size: 10.0,
+            display: FontConfig {
+                font: Font::HelveticaBold,
+                size: 30.0,
+            },
+            title: FontConfig {
+                font: Font::HelveticaBold,
+                size: 14.0,
+            },
+            body: FontConfig {
+                font: Font::Helvetica,
+                size: 10.0,
+            },
             margin: 32.0,
             element_spacing: 4.0,
         }
