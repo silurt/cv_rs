@@ -2,7 +2,7 @@ use core::schema::types::{CVEducation, CVExperience, CVLinks, CVPerson};
 
 use oxidize_pdf::Font;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Element {
     Header(CVPerson, CVLinks),
     Title(String),
@@ -49,7 +49,7 @@ impl Default for Style {
             display_size: 30.0,
             title_size: 14.0,
             body_size: 10.0,
-            margin: 16.0,
+            margin: 32.0,
             element_spacing: 4.0,
         }
     }

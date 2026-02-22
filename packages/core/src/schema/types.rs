@@ -1,4 +1,4 @@
-#[derive(serde::Deserialize, serde::Serialize, Clone, Debug)]
+#[derive(serde::Deserialize, serde::Serialize, Clone, PartialEq, Eq, Debug)]
 pub struct CVPerson {
     pub name: String,
     pub location: String,
@@ -6,27 +6,27 @@ pub struct CVPerson {
     pub phone: String,
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Clone, Debug)]
+#[derive(serde::Deserialize, serde::Serialize, Clone, PartialEq, Eq, Debug)]
 pub struct CVLinks {
     pub github: String,
     pub linkedin: String,
     pub portfolio: String,
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Clone, Debug)]
+#[derive(serde::Deserialize, serde::Serialize, Clone, PartialEq, Eq, Debug)]
 pub struct CVProject {
     pub name: String,
     pub description: String,
     pub date_range: String,
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Clone, Debug)]
+#[derive(serde::Deserialize, serde::Serialize, Clone, PartialEq, Eq, Debug)]
 pub struct CVEarlyCareer {
     pub date_range: String,
     pub summary: String,
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Clone, Debug)]
+#[derive(serde::Deserialize, serde::Serialize, Clone, PartialEq, Eq, Debug)]
 pub struct CVExperience {
     pub company: String,
     pub role: String,
@@ -38,7 +38,7 @@ pub struct CVExperience {
     pub tags: Vec<String>,
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Clone, Debug)]
+#[derive(serde::Deserialize, serde::Serialize, Clone, PartialEq, Eq, Debug)]
 pub struct CVTechnicalSkills {
     pub languages: Vec<String>,
     pub frameworks: Vec<String>,
@@ -49,13 +49,13 @@ pub struct CVTechnicalSkills {
     pub tools: Vec<String>,
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Clone, Debug)]
+#[derive(serde::Deserialize, serde::Serialize, Clone, PartialEq, Eq, Debug)]
 pub struct CVLanguage {
     pub name: String,
     pub proficiency: String,
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Clone, Debug)]
+#[derive(serde::Deserialize, serde::Serialize, Clone, PartialEq, Eq, Debug)]
 pub struct CVEducation {
     pub institution: String,
     pub degree: String,
@@ -65,7 +65,7 @@ pub struct CVEducation {
     pub end_date: String,
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Clone, Debug)]
+#[derive(serde::Deserialize, serde::Serialize, Clone, PartialEq, Eq, Debug)]
 pub struct CVSchema {
     pub person: CVPerson,
     pub links: CVLinks,
