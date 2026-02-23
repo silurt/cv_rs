@@ -70,26 +70,8 @@ fn render_element_to_flow(
                 &format!("- {}\n", items.join("\n- ")),
             )?;
         }
-        Element::Education(education) => {
-            style.write_to_flow(
-                flow,
-                StyleFont::Body,
-                TextAlign::Left,
-                &format!(
-                    "{} - {} in {} | {} | {} to {}\n",
-                    education.institution,
-                    education.degree,
-                    education.field,
-                    education.location,
-                    education.start_date,
-                    education.end_date
-                ),
-            )?;
-        }
         Element::Block(block) => {
             let current_y = flow.cursor_position().1;
-
-            // style.indent_flow(flow, 1.0)?;
 
             style.write_to_flow(
                 flow,
@@ -102,15 +84,15 @@ fn render_element_to_flow(
                 render_element_to_flow(element, style, doc, page, flow)?;
             }
 
-            let new_y = flow.cursor_position().1;
+            if block.is_quote {
+                let new_y = flow.cursor_position().1;
 
-            page.graphics()
-                .set_line_width(1.0)
-                .move_to(style.margin, current_y)
-                .line_to(style.margin, new_y)
-                .stroke();
-
-            // style.indent_flow(flow, 0.0)?;
+                page.graphics()
+                    .set_line_width(1.0)
+                    .move_to(style.margin, current_y)
+                    .line_to(style.margin, new_y)
+                    .stroke();
+            }
         }
         Element::Table(rows) => {
             for (key, value) in rows {

@@ -25,8 +25,6 @@ pub enum Element {
     List(Vec<String>),
     Table(Vec<(String, String)>),
     Block(Block),
-    // Experience(CVExperience),
-    Education(CVEducation),
 }
 
 impl Element {

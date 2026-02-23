@@ -98,7 +98,17 @@ pub fn build_element_set(s: &CVSchema) -> ElementSet {
     // Education
     out.push(Element::Title("EDUCATION".to_string()));
     for e in &s.education {
-        out.push(Element::Education(e.clone()));
+        out.push(Element::Block(Block {
+            title: e.institution.clone(),
+            is_quote: false,
+            elements: vec![
+                Element::Subtitle(format!(
+                    "{} | {}",
+                    e.degree, e.field
+                )),
+                Element::Body(format!("{} | {}-{}", e.field, e.start_date, e.end_date)),
+            ],
+        }));
     }
 
     out
