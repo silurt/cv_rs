@@ -1,4 +1,4 @@
-use oxidize_pdf::{Font, Page, TextAlign, TextFlowContext};
+use oxidize_pdf::{Font, Margins, Page, TextAlign, TextFlowContext};
 
 #[derive(Clone)]
 pub struct FontConfig {
@@ -23,12 +23,32 @@ impl StyleFont {
 }
 
 #[derive(Clone)]
+pub struct Spacings {
+    pub element: f64,
+    pub block: f64,
+}
+
+pub enum Spacing {
+    Element,
+    Block,
+}
+impl Spacing {
+    pub fn get_spacing(&self, style: &Style) -> f64 {
+        match self {
+            Spacing::Element => style.spacings.element,
+            Spacing::Block => style.spacings.block,
+        }
+    }
+}
+
+#[derive(Clone)]
 pub struct Style {
     pub display: FontConfig,
     pub title: FontConfig,
     pub body: FontConfig,
     pub margin: f64,
-    pub element_spacing: f64,
+    pub indentation: f64,
+    pub spacings: Spacings,
 }
 
 impl Default for Style {
@@ -47,7 +67,11 @@ impl Default for Style {
                 size: 10.0,
             },
             margin: 32.0,
-            element_spacing: 4.0,
+            indentation: 8.0,
+            spacings: Spacings {
+                element: 16.0,
+                block: 8.0,
+            },
         }
     }
 }
@@ -79,5 +103,24 @@ impl Style {
         self.style_flow(font, flow, alignment);
         flow.write_wrapped(text)?;
         Ok(())
+    }
+
+    pub fn create_flow(&self, page: &Page, indent_level: Option<f64>) -> TextFlowContext {
+        let indentation = indent_level.unwrap_or(0.0) * self.indentation;
+
+        let mut flow = TextFlowContext::new(
+            page.effective_width(),
+            page.effective_height(),
+            Margins {
+                left: self.margin + indentation,
+                right: self.margin,
+                top: self.margin,
+                bottom: self.margin,
+            },
+        );
+
+        let (x, y) = self.get_initial_cursor_position(page);
+        flow.at(x + indentation, y);
+        flow
     }
 }

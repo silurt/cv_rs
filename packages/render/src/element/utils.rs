@@ -1,37 +1,24 @@
-use oxidize_pdf::{Document, Page, TextAlign};
+use oxidize_pdf::{Document, Page, TextAlign, TextFlowContext};
 
 use crate::{
     element::types::Element,
     style::types::{Style, StyleFont},
 };
-
-pub fn render_element(
+fn render_element_to_flow(
     element: &Element,
     style: &Style,
     doc: &mut Document,
     page: &mut Page,
-    previous_y: &mut f64,
-    previous_element: &mut Option<Element>,
+    flow: &mut TextFlowContext,
 ) -> Result<(), anyhow::Error> {
-    let mut flow = page.text_flow();
-    flow.at(style.margin, *previous_y);
-
-    if let Some(previous_element) = previous_element {
-        if element.requires_spacing(previous_element) {
-            style.write_to_flow(&mut flow, StyleFont::Body, TextAlign::Left, "\n")?;
-        }
-    }
-    *previous_element = Some(element.clone());
-
     match element {
         Element::Header(person, links) => {
             style.write_to_flow(
-                &mut flow,
+                flow,
                 StyleFont::Display,
                 TextAlign::Center,
                 &person.name.to_uppercase(),
             )?;
-
             let links = vec![
                 person.location.clone(),
                 format!("Email: {}", person.email),
@@ -42,9 +29,9 @@ pub fn render_element(
             ]
             .join(" | ");
 
-            style.write_to_flow(&mut flow, StyleFont::Body, TextAlign::Center, &links)?;
+            style.write_to_flow(flow, StyleFont::Body, TextAlign::Center, &links)?;
 
-            style.style_flow(StyleFont::Body, &mut flow, TextAlign::Center);
+            style.style_flow(StyleFont::Body, flow, TextAlign::Center);
 
             // Add a horizontal line after the header
             let current_y = flow.cursor_position().1;
@@ -64,22 +51,20 @@ pub fn render_element(
                 .stroke();
         }
         Element::Body(text) => {
-            style.write_to_flow(&mut flow, StyleFont::Body, TextAlign::Left, text)?;
+            style.write_to_flow(flow, StyleFont::Body, TextAlign::Left, text)?;
         }
         Element::Title(text) => {
-            style.write_to_flow(&mut flow, StyleFont::Title, TextAlign::Left, text)?;
+            style.write_to_flow(flow, StyleFont::Title, TextAlign::Left, text)?;
+        }
+        Element::Subtitle(text) => {
+            style.write_to_flow(flow, StyleFont::Title, TextAlign::Left, text)?;
         }
         Element::Tags(tags) => {
-            style.write_to_flow(
-                &mut flow,
-                StyleFont::Body,
-                TextAlign::Left,
-                &tags.join(" | "),
-            )?;
+            style.write_to_flow(flow, StyleFont::Body, TextAlign::Left, &tags.join(" | "))?;
         }
         Element::List(items) => {
             style.write_to_flow(
-                &mut flow,
+                flow,
                 StyleFont::Body,
                 TextAlign::Left,
                 &format!("- {}\n", items.join("\n- ")),
@@ -87,7 +72,7 @@ pub fn render_element(
         }
         Element::Education(education) => {
             style.write_to_flow(
-                &mut flow,
+                flow,
                 StyleFont::Body,
                 TextAlign::Left,
                 &format!(
@@ -101,21 +86,36 @@ pub fn render_element(
                 ),
             )?;
         }
-        Element::Experience(experience) => {
+        Element::Block(block) => {
+            let current_y = flow.cursor_position().1;
+
+            // style.indent_flow(flow, 1.0)?;
+
             style.write_to_flow(
-                &mut flow,
-                StyleFont::Body,
+                flow,
+                StyleFont::Title,
                 TextAlign::Left,
-                &format!(
-                    "{} - {} at {}\n{}",
-                    experience.start_date, experience.end_date, experience.role, experience.summary
-                ),
+                &block.title.to_uppercase(),
             )?;
+
+            for element in &block.elements {
+                render_element_to_flow(element, style, doc, page, flow)?;
+            }
+
+            let new_y = flow.cursor_position().1;
+
+            page.graphics()
+                .set_line_width(1.0)
+                .move_to(style.margin, current_y)
+                .line_to(style.margin, new_y)
+                .stroke();
+
+            // style.indent_flow(flow, 0.0)?;
         }
         Element::Table(rows) => {
             for (key, value) in rows {
                 style.write_to_flow(
-                    &mut flow,
+                    flow,
                     StyleFont::Body,
                     TextAlign::Left,
                     &format!("{}: {}\n", key, value),
@@ -124,7 +124,33 @@ pub fn render_element(
         }
     }
 
-    if (flow.cursor_position().1 + style.element_spacing) < style.margin {
+    Ok(())
+}
+
+pub fn render_element(
+    element: &Element,
+    style: &Style,
+    doc: &mut Document,
+    page: &mut Page,
+    previous_y: &mut f64,
+    previous_element: &mut Option<Element>,
+) -> Result<(), anyhow::Error> {
+    let mut flow = style.create_flow(page, element.get_indentation());
+    flow.at(style.margin, *previous_y);
+
+    if let Some(spacing) = element.get_spacing(previous_element, style) {
+        let _ = flow
+            .set_font(style.body.font.clone(), spacing)
+            .write_wrapped("\n");
+    }
+
+    *previous_element = Some(element.clone());
+
+    render_element_to_flow(element, style, doc, page, &mut flow)?;
+
+    let page_space = (style.margin * 2.0) + style.spacings.element * 2.0;
+
+    if (flow.cursor_position().1 - page_space) < style.margin {
         page.add_text_flow(&flow);
         doc.add_page(page.clone());
         *page = style.setup_page();

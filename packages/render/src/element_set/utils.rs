@@ -1,6 +1,9 @@
 use core::schema::types::CVSchema;
 
-use crate::{element::types::Element, element_set::types::ElementSet};
+use crate::{
+    element::types::{Block, Element},
+    element_set::types::ElementSet,
+};
 
 pub fn build_element_set(s: &CVSchema) -> ElementSet {
     let mut out = ElementSet::new();
@@ -45,7 +48,19 @@ pub fn build_element_set(s: &CVSchema) -> ElementSet {
     // Experience
     out.push(Element::Title("EXPERIENCE".to_string()));
     for e in &s.experience {
-        out.push(Element::Experience(e.clone()));
+        out.push(Element::Block(Block {
+            title: e.role.clone(),
+            is_quote: true,
+            elements: vec![
+                Element::Subtitle(format!(
+                    "{} | {} | {}-{}",
+                    e.company, e.location, e.start_date, e.end_date
+                )),
+                Element::Body(e.summary.clone()),
+                Element::Tags(e.tags.clone()),
+                Element::List(e.highlights.clone()),
+            ],
+        }));
     }
 
     // Early career

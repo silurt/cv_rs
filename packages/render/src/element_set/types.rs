@@ -25,7 +25,7 @@ impl ElementSet {
         let mut page = style.setup_page();
 
         let (_, y) = style.get_initial_cursor_position(&page);
-        let mut previous_y = y - style.display.size - style.element_spacing;
+        let mut previous_y = y - style.display.size - style.spacings.element;
         let mut previous_element: Option<Element> = None;
 
         for element in self.get_elements() {
