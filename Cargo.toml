@@ -13,3 +13,9 @@ serde = { version = "1", features = ["derive"] }
 oxidize-pdf = "4.7"
 serde_json = "1.0.149"
 zip = { version = "8", default-features = false, features = ["deflate"] }
+
+# oxidize-pdf has no public way to emit a `TJ` array, so kerned text has to be
+# split into one positioned text object per kern pair. The fork adds
+# `TextContext::write_kerned`; see packages/render/src/layout/types.rs.
+[patch.crates-io]
+oxidize-pdf = { git = "https://github.com/silurt/oxidizePdf", branch = "kerned-show-text" }

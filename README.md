@@ -46,16 +46,20 @@ BT
 /Helvetica 10 Tf
 0.333 0.333 0.333 rg
 65.26 765.42 Td
-(Amsterdam, NL) Tj
+[ (London, UK) 50.00 ( Email: ada@example.com) ] TJ
 ET
 ```
 
+One text object per line of the document, with kerning carried inline as `TJ`
+adjustments rather than split across separately positioned text objects. The
+numbers are thousandths of an em; positive moves the next glyphs left.
+
 | Mode | Size | Notes |
 |---|---|---|
-| default | ~108 KB | readable stream, full structure tree |
-| `--compress` | ~41 KB | same document, streams deflated |
-| `--no-tags` | ~86 KB | readable, no structure tree |
-| `--no-tags --compress` | ~19 KB | smallest |
+| default | ~58 KB | readable stream, full structure tree |
+| `--compress` | ~36 KB | same document, streams deflated |
+| `--no-tags` | ~36 KB | readable, no structure tree |
+| `--no-tags --compress` | ~15 KB | smallest |
 | `.docx` | ~6 KB | always deflated; a `.docx` is a zip |
 
 Every mode carries identical text and identical layout. File size has no bearing on

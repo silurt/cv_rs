@@ -6,9 +6,10 @@
 //! comparable with the reference stylesheet.
 
 use oxidize_pdf::structure::{StandardStructureType, StructTree, StructureElement};
+use oxidize_pdf::text::KernedRun;
 use oxidize_pdf::{Document, Page};
 
-use crate::layout::utils::{advances, encode, kern_between, run_boundaries, text_width, wrap};
+use crate::layout::utils::{encode, kern_between, run_boundaries, text_width, wrap};
 use crate::style::types::{
     Align, ENTRY_RULE_WIDTH, PAGE_HEIGHT, PAGE_PADDING, PAGE_WIDTH, TextStyle,
 };
@@ -189,36 +190,41 @@ impl<'a> Renderer<'a> {
             _ => x,
         };
 
-        let chars: Vec<char> = text.chars().collect();
+        // Emit the line as one `TJ` array: the runs between kern pairs, with
+        // each pair's adjustment carried inline. One text object per line keeps
+        // the content stream readable and matches what a PDF producer writes;
+        // the alternative is a separately positioned text object per kern pair.
         let bytes = encode(text);
-        let steps = advances(&bytes, style, word_spacing);
         let boundaries = run_boundaries(&bytes);
+        let chars: Vec<char> = text.chars().collect();
 
-        // Split into runs at each kern boundary; every run is drawn at its own
-        // origin, which is what reproduces the reference's glyph positions.
-        let mut runs: Vec<(f64, String)> = Vec::new();
-        let mut run = String::new();
-        let mut run_x = origin;
-        let mut pen = origin;
+        let mut runs: Vec<KernedRun<'_>> = Vec::new();
+        let mut segments: Vec<(String, f64)> = Vec::new();
+        let mut current = String::new();
 
         for (index, ch) in chars.iter().enumerate() {
-            run.push(*ch);
-            pen += steps[index];
+            current.push(*ch);
 
-            // A run boundary always starts a new positioned run, and kerning
-            // does not cross it.
-            let kerned = boundaries.contains(&(index + 1))
-                || bytes
-                    .get(index + 1)
-                    .is_some_and(|&next| kern_between(style, bytes[index], next) != 0.0);
+            let kern = match bytes.get(index + 1) {
+                Some(&next) if !boundaries.contains(&(index + 1)) => {
+                    kern_between(style, bytes[index], next)
+                }
+                _ => 0.0,
+            };
 
-            if kerned {
-                runs.push((run_x, std::mem::take(&mut run)));
-                run_x = pen;
+            if kern != 0.0 {
+                // TJ adjustments are in thousandths of an em and move the
+                // following glyphs left, so a negative kern is a positive
+                // adjustment.
+                let adjustment = -kern / style.size * 1000.0;
+                segments.push((std::mem::take(&mut current), adjustment));
             }
         }
-        if !run.is_empty() {
-            runs.push((run_x, run));
+        if !current.is_empty() {
+            segments.push((current, 0.0));
+        }
+        for (text, adjustment) in &segments {
+            runs.push(KernedRun::with_adjustment(text, *adjustment));
         }
 
         let font = style.font.clone();
@@ -236,12 +242,9 @@ impl<'a> Renderer<'a> {
             .set_font(font, size)
             .set_fill_color(color)
             .set_character_spacing(letter_spacing)
-            .set_word_spacing(word_spacing);
-
-        for (run_origin, run_text) in runs {
-            text_ctx.at(run_origin, y);
-            let _ = text_ctx.write(&run_text);
-        }
+            .set_word_spacing(word_spacing)
+            .at(origin, y);
+        let _ = text_ctx.write_kerned(&runs);
 
         let _ = self.page.end_marked_content();
         if let Some(mcid) = mcid {
