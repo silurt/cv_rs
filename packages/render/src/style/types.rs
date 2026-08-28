@@ -1,8 +1,10 @@
-//! A direct port of the reference `pdfStyles.ts`.
+//! Every measurement the document uses, in one place.
 //!
-//! Every number here is the CSS value from that stylesheet. Keeping them literal
-//! (rather than derived from a spacing scale) is deliberate: when the reference
-//! stylesheet changes, the diff against this file should be obvious.
+//! These are deliberately literal rather than derived from a spacing scale: a
+//! CV is a fixed design, and being able to read the exact point size of a
+//! heading beats being able to rescale the whole document.
+//!
+//! Units are PDF points throughout (1/72 inch).
 
 use oxidize_pdf::{Color, Font};
 

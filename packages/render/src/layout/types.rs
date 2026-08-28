@@ -1,9 +1,12 @@
 //! The layout engine.
 //!
-//! Works in CSS coordinates — `cursor` is the distance from the top of the page
-//! down to the next unused point — and converts to PDF's bottom-left origin only
-//! at the moment of drawing. That keeps every metric in this crate directly
-//! comparable with the reference stylesheet.
+//! Positions are measured downward from the top of the page: `cursor` is the
+//! distance from the top edge to the next unused point. PDF's own origin is
+//! bottom-left, so the flip happens once, at the moment of drawing.
+//!
+//! Working top-down means the numbers here read in the same order the document
+//! does — a heading at 120 is above a paragraph at 140 — which makes the layout
+//! constants legible and the arithmetic hard to get backwards.
 
 use oxidize_pdf::structure::{StandardStructureType, StructTree, StructureElement};
 use oxidize_pdf::text::KernedRun;
@@ -307,8 +310,8 @@ impl<'a> Renderer<'a> {
         if bottom <= top {
             return;
         }
-        // A CSS left border of width w occupies x..x+w, so the stroke centre
-        // sits half a width in.
+        // A left border of width w occupies x..x+w, so the stroke centre sits
+        // half a width in.
         let centre = x + (ENTRY_RULE_WIDTH / 2.0);
         let y0 = PAGE_HEIGHT - top;
         let y1 = PAGE_HEIGHT - bottom;
