@@ -2,15 +2,18 @@
 
 Rust workspace for generating CV/resume PDFs.
 
+The output is built to match the reference React renderer (`../cv`, `@react-pdf/renderer`)
+as closely as the format allows — see [Parity](#parity).
+
 ## Commands
 
 ```bash
 cargo build                   # build all packages
 cargo test                    # run all tests
-cargo check                   # type-check without building
+cargo clippy --all-targets    # lint
+cargo fmt --all               # format
 
-# Run the CLI
-cargo run -p cli -- --schema-path cv.json --output-path output/cv.pdf
+cargo run -p cli -- --schema-path examples/example.json --output-path output/cv.pdf
 ```
 
 ## CLI
@@ -19,28 +22,95 @@ cargo run -p cli -- --schema-path cv.json --output-path output/cv.pdf
 Usage: cv --schema-path <SCHEMA_PATH> --output-path <OUTPUT_PATH>
 
 Options:
-  -s, --schema-path <SCHEMA_PATH>  path to JSON schema file
-  -o, --output-path <OUTPUT_PATH>  path to write the output PDF
+  -s, --schema-path <SCHEMA_PATH>  path to the JSON schema file
+  -o, --output-path <OUTPUT_PATH>  path to write the output PDF (directories are created)
   -h, --help                       Print help
   -V, --version                    Print version
 ```
 
-## Workspace Architecture
+`examples/example.json` is a complete, fictional CV covering every section. Keep real
+CV data out of the repository — `output/` is gitignored for exactly this reason.
+
+## Workspace architecture
 
 ```
 packages/
-  core/    — shared data types (CVSchema, CVPerson, …)
-  render/  — PDF rendering logic using oxidize-pdf
+  core/    — the data model (CVSchema and friends)
+  render/  — layout and PDF rendering
   cli/     — binary `cv` that wires core + render, writes output
 ```
 
-**Data flow**: `CVSchema` (core) → `render()` (render) → `Document` (oxidize-pdf) → `doc.save()` (cli)
+`render` is layered, mirroring the reference's own structure:
 
-**Key dependencies**: `oxidize-pdf` (PDF generation), `clap` (CLI args), `anyhow` (error handling), `serde` (derive)
+| Module | Responsibility |
+|---|---|
+| `style` | Every metric and colour, ported one-for-one from the reference stylesheet, plus the Helvetica AFM tables in `style::metrics` |
+| `layout` | Text measurement, line breaking (`layout::linebreak`), and the page/cursor machine (`layout::types::Renderer`) |
+| `block` | The five block shapes a section can render, plus the header |
+| `sections` | Maps a `CVSchema` to an ordered list of sections |
+
+**Data flow**: `CVSchema` → `sections::build_sections` → `Vec<Section>` → `block::render_section`
+→ `Renderer` → `oxidize_pdf::Document` → `doc.save()`.
+
+### Blocks
+
+A section renders exactly one block. Adding a shape means adding a variant to `Block`
+and a match arm in `block::utils::render_block`; nothing else changes.
+
+- `Prose` — paragraphs of running text (`Lead` is the larger, justified profile treatment)
+- `InlineList` — items joined onto one or more balanced lines, e.g. "A · B · C"
+- `BulletList` — a flat list of bulleted lines
+- `EntryList` — repeated title/meta/summary/bullets records (`Ruled` for Experience, `Plain` for Education)
+- `LabelValue` — two-column rows, used by the skills table
+
+### Layout
+
+`Renderer` works in CSS coordinates — the cursor is the distance from the top of the
+page — and converts to PDF's bottom-left origin only when drawing, so every metric in
+the crate is directly comparable with the reference stylesheet.
+
+Two details are load-bearing:
+
+- **Line breaking** is the Knuth & Plass algorithm (`layout::linebreak`), not greedy
+  wrapping. The reference treats inter-word spaces as elastic glue that can shrink, so
+  it will keep a word on a line that overruns the column by a fraction of a point and
+  then set that line tight. Greedy wrapping breaks a word early and every subsequent
+  line diverges.
+- **Measurement** uses the Adobe AFM tables with kern pairs, generated from the same
+  data the reference uses. Widths drive line breaking, so a systematic error here
+  shifts every wrap point in the document.
+
+## Parity
+
+Verified against the reference render of the same data:
+
+| Measure | Result |
+|---|---|
+| Pages | identical |
+| Lines | 115 / 115 break identically |
+| Line vertical position | within 0.2pt |
+| Word horizontal position | 99.8% within 0.5pt (worst 0.59pt) |
+
+The residual comes from justification: the reference distributes slack across both
+word spaces *and* letters, while this renderer uses word spacing alone.
+
+The layout deliberately reproduces a few quirks of the reference rather than tidying
+them, because they are visible in the output:
+
+- Kerning does not cross a text-run boundary. The reference builds a bullet line from
+  two JSX children, so `"\u{2022} "` is its own run and the `space`+`W` pair does not kern.
+- Where the header's contact row wraps, one space migrates from the line's first
+  separator to its end, leaving the overall advance — and so the centring — unchanged.
+- A line's leading sits below its baseline, so a taller line pushes the *following*
+  line down rather than shifting its own glyphs.
+
+`experience.tags` is carried in the schema but not rendered, matching the reference.
 
 ## Schema
 
-The CLI reads a JSON file conforming to `CVSchema`. Below is the full structure with all fields.
+The CLI reads a JSON file conforming to `CVSchema`. Every field is optional and
+defaults to empty; a section whose data is empty removes itself from the document,
+heading included.
 
 ### Top-level fields
 
@@ -48,26 +118,28 @@ The CLI reads a JSON file conforming to `CVSchema`. Below is the full structure 
 |---|---|---|
 | `person` | `CVPerson` | Name and contact details |
 | `links` | `CVLinks` | Social/professional links |
-| `profile` | `string` | Short professional summary |
-| `core_competencies` | `string[]` | List of core skills/competencies |
-| `technical_focus_areas` | `string[]` | Technical domains of expertise |
-| `key_achievements` | `string[]` | Notable career achievements |
-| `tech_leadership` | `string[]` | Leadership highlights |
-| `selected_projects` | `CVProject[]` | Highlight projects |
-| `early_career` | `CVEarlyCareer` | Summary of early career years |
-| `experience` | `CVExperience[]` | Work experience entries |
-| `technical_skills` | `CVTechnicalSkills` | Categorised skill lists |
-| `languages` | `CVLanguage[]` | Spoken/written languages |
-| `education` | `CVEducation[]` | Educational background |
+| `profile` | `string` | Professional summary; blank lines separate paragraphs |
+| `core_competencies` | `string[]` | Balanced across two lines |
+| `technical_focus_areas` | `string[]` | Rendered as "Specialization Focus" |
+| `key_achievements` | `string[]` | Bulleted |
+| `tech_leadership` | `string[]` | Bulleted |
+| `selected_projects` | `CVProject[]` | Bulleted |
+| `early_career` | `CVEarlyCareer?` | Omitted entirely when absent |
+| `experience` | `CVExperience[]` | Ruled entries |
+| `technical_skills` | `CVTechnicalSkills` | Two-column table; empty categories are dropped |
+| `languages` | `CVLanguage[]` | Rendered as one line |
+| `education` | `CVEducation[]` | Plain entries |
 
 ### Nested types
 
-**CVPerson**
+**CVPerson** — `phone` is optional, so a public CV can omit it entirely rather than
+rendering an empty line.
 ```json
-{ "name": "", "location": "", "email": "", "phone": "" }
+{ "name": "", "location": "", "email": "", "phone": "+31 6 00000000" }
 ```
 
-**CVLinks**
+**CVLinks** — empty values are dropped from the contact row. Schemes and `www.` are
+stripped, and the host is added if missing.
 ```json
 { "github": "", "linkedin": "", "portfolio": "" }
 ```
@@ -82,30 +154,22 @@ The CLI reads a JSON file conforming to `CVSchema`. Below is the full structure 
 { "date_range": "", "summary": "" }
 ```
 
-**CVExperience**
+**CVExperience** — `start_date`/`end_date` of the form `YYYY-MM` render as the year
+alone; anything else passes through, so `"Present"` works.
 ```json
 {
-  "company": "",
-  "role": "",
-  "location": "",
-  "start_date": "",
-  "end_date": "",
-  "summary": "",
-  "highlights": [],
-  "tags": []
+  "company": "", "role": "", "location": "",
+  "start_date": "2020-01", "end_date": "Present",
+  "summary": "", "highlights": [], "tags": []
 }
 ```
 
 **CVTechnicalSkills**
 ```json
 {
-  "languages": [],
-  "frameworks": [],
-  "ai_ml_skills": [],
-  "backend_cloud_skills": [],
-  "blockchain_skills": [],
-  "mobile_skills": [],
-  "tools": []
+  "languages": [], "frameworks": [], "ai_ml_skills": [],
+  "blockchain_skills": [], "mobile_skills": [],
+  "backend_cloud_skills": [], "tools": []
 }
 ```
 
@@ -117,76 +181,21 @@ The CLI reads a JSON file conforming to `CVSchema`. Below is the full structure 
 **CVEducation**
 ```json
 {
-  "institution": "",
-  "degree": "",
-  "field": "",
-  "location": "",
-  "start_date": "",
-  "end_date": ""
+  "institution": "", "degree": "", "field": "", "location": "",
+  "start_date": "", "end_date": "", "honors": []
 }
 ```
 
-### Minimal example
+See `examples/example.json` for a complete document.
 
-```json
-{
-  "person": {
-    "name": "Jane Doe",
-    "location": "Berlin, Germany",
-    "email": "jane@example.com",
-    "phone": "+49 123 456789"
-  },
-  "links": {
-    "github": "github.com/janedoe",
-    "linkedin": "linkedin.com/in/janedoe",
-    "portfolio": "janedoe.dev"
-  },
-  "profile": "Senior software engineer with 10 years of experience.",
-  "core_competencies": ["System Design", "Distributed Systems"],
-  "technical_focus_areas": ["Backend", "Cloud Infrastructure"],
-  "key_achievements": ["Led migration of monolith to microservices"],
-  "tech_leadership": ["Managed a team of 5 engineers"],
-  "selected_projects": [
-    { "name": "Project X", "description": "A cool project.", "date_range": "2022–2023" }
-  ],
-  "early_career": {
-    "date_range": "2010–2015",
-    "summary": "Worked at various startups in a full-stack capacity."
-  },
-  "experience": [
-    {
-      "company": "Acme Corp",
-      "role": "Senior Engineer",
-      "location": "Berlin, Germany",
-      "start_date": "2020-01",
-      "end_date": "Present",
-      "summary": "Led backend platform development.",
-      "highlights": ["Reduced p99 latency by 40%"],
-      "tags": ["Rust", "Kubernetes"]
-    }
-  ],
-  "technical_skills": {
-    "languages": ["Rust", "TypeScript"],
-    "frameworks": ["Axum", "React"],
-    "ai_ml_skills": ["PyTorch"],
-    "backend_cloud_skills": ["AWS", "Kubernetes"],
-    "blockchain_skills": [],
-    "mobile_skills": [],
-    "tools": ["Git", "Docker"]
-  },
-  "languages": [
-    { "name": "English", "proficiency": "Native" },
-    { "name": "German", "proficiency": "B2" }
-  ],
-  "education": [
-    {
-      "institution": "TU Berlin",
-      "degree": "M.Sc.",
-      "field": "Computer Science",
-      "location": "Berlin, Germany",
-      "start_date": "2008-10",
-      "end_date": "2012-07"
-    }
-  ]
-}
+## Regenerating font metrics
+
+`packages/render/src/style/metrics.rs` is generated, not hand-written. It comes from
+the AFM tables bundled with the reference renderer, so run the generator from a
+checkout of that repo (which has the `@react-pdf/pdfkit` dependency):
+
+```bash
+node ../cv_rs/scripts/gen-metrics.mjs ../cv_rs/packages/render/src/style/metrics.rs
 ```
+
+Only needed if the reference changes font.

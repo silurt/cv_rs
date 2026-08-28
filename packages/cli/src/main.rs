@@ -2,13 +2,15 @@ use clap::Parser;
 use core::schema::types::CVSchema;
 use render::render;
 
-/// Simple program to greet a person
+/// Render a CV described by a JSON schema to a PDF.
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
+    /// Path to the JSON schema file.
     #[arg(short, long)]
     schema_path: String,
 
+    /// Path to write the output PDF to. Missing directories are created.
     #[arg(short, long)]
     output_path: String,
 }
@@ -24,10 +26,10 @@ pub fn render_to_file(relative_path: &str, schema: &CVSchema) -> Result<(), anyh
     let path = std::path::Path::new(&relative_path);
 
     // if directory doesn't exist, create it
-    if let Some(parent) = path.parent() {
-        if !parent.exists() {
-            std::fs::create_dir_all(parent).expect("Failed to create directory");
-        }
+    if let Some(parent) = path.parent()
+        && !parent.exists()
+    {
+        std::fs::create_dir_all(parent)?;
     }
 
     let mut doc = render(schema)?;
@@ -40,11 +42,18 @@ fn generate_pdf_from_args(args: Args) -> Result<(), anyhow::Error> {
     render_to_file(&args.output_path, &schema)
 }
 
-fn main() {
+fn main() -> std::process::ExitCode {
     let args = Args::parse();
+    let output = args.output_path.clone();
 
     match generate_pdf_from_args(args) {
-        Ok(_) => println!("PDF generated successfully!"),
-        Err(e) => eprintln!("Error generating PDF: {}", e),
+        Ok(()) => {
+            println!("Wrote {output}");
+            std::process::ExitCode::SUCCESS
+        }
+        Err(error) => {
+            eprintln!("Error generating PDF: {error:#}");
+            std::process::ExitCode::FAILURE
+        }
     }
 }

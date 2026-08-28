@@ -7,3 +7,6 @@ edition = "2024"
 core = { path = "../core" }
 anyhow = { workspace = true }
 oxidize-pdf = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

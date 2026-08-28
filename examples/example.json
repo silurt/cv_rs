@@ -1,0 +1,103 @@
+{
+  "person": {
+    "name": "Ada Lovelace",
+    "location": "London, UK",
+    "email": "ada@example.com",
+    "phone": "+44 20 7946 0000"
+  },
+  "links": {
+    "github": "https://github.com/example",
+    "linkedin": "www.linkedin.com/in/example",
+    "portfolio": ""
+  },
+  "profile": "Systems engineer with a decade of experience building analytical engines and the software that drives them.\n\nTakes projects from first sketch to working machine, and has led teams of four to ten.",
+  "core_competencies": [
+    "Distributed Systems",
+    "Compiler Design",
+    "Numerical Methods",
+    "Systems Architecture",
+    "Technical Leadership",
+    "Rust",
+    "TypeScript",
+    "Cloud Infrastructure"
+  ],
+  "technical_focus_areas": [
+    "Analytical Engines",
+    "Algorithm Design",
+    "Distributed Systems",
+    "Developer Tooling"
+  ],
+  "key_achievements": [
+    "Published the first algorithm intended for machine execution.",
+    "Designed a note-taking system that doubled the length of the original paper.",
+    "Led a team of six engineers across two research sites."
+  ],
+  "tech_leadership": [
+    "Mentored junior engineers and established review practices.",
+    "Set technical direction across research and engineering."
+  ],
+  "selected_projects": [
+    {
+      "name": "Analytical Engine Notes",
+      "description": "Algorithm and commentary for a general-purpose computing machine.",
+      "date_range": "1842-1843"
+    }
+  ],
+  "early_career": {
+    "date_range": "1833-1840",
+    "summary": "Studied mathematics and mechanics, corresponding with leading engineers of the day."
+  },
+  "experience": [
+    {
+      "company": "Example Institute",
+      "role": "Principal Engineer",
+      "location": "London",
+      "start_date": "1840-01",
+      "end_date": "Present",
+      "summary": "Leads design work on general-purpose computing machinery.",
+      "highlights": [
+        "Designed and documented the first published machine algorithm.",
+        "Built the notation used to describe engine operations.",
+        "Advised on the mechanical design of the engine's mill and store."
+      ],
+      "tags": ["Algorithms", "Mechanics"]
+    },
+    {
+      "company": "Example Society",
+      "role": "Research Associate",
+      "location": "London",
+      "start_date": "1835-06",
+      "end_date": "1839-12",
+      "summary": "Researched mathematical methods for mechanical calculation.",
+      "highlights": [
+        "Translated and expanded a foreign memoir on calculating engines.",
+        "Corresponded with engineers across Europe on machine design."
+      ],
+      "tags": []
+    }
+  ],
+  "technical_skills": {
+    "languages": ["Rust", "TypeScript", "Python", "SQL"],
+    "frameworks": ["Axum", "React", "Next.js"],
+    "ai_ml_skills": ["Vector search", "Embeddings"],
+    "blockchain_skills": [],
+    "mobile_skills": ["React Native"],
+    "backend_cloud_skills": ["PostgreSQL", "Docker", "Kubernetes"],
+    "tools": ["Git", "Nix", "Figma"]
+  },
+  "languages": [
+    { "name": "English", "proficiency": "Native" },
+    { "name": "French", "proficiency": "Fluent" }
+  ],
+  "education": [
+    {
+      "institution": "Example University",
+      "degree": "BSc",
+      "field": "Mathematics",
+      "location": "London",
+      "start_date": "1830",
+      "end_date": "1833",
+      "honors": ["Graduated with distinction"]
+    }
+  ]
+}

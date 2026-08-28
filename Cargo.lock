@@ -1325,6 +1325,7 @@ dependencies = [
  "anyhow",
  "core",
  "oxidize-pdf",
+ "serde_json",
 ]
 
 [[package]]
