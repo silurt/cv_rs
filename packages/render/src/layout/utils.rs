@@ -271,29 +271,6 @@ pub fn wrap(text: &str, width: f64, style: &TextStyle) -> Vec<String> {
     lines
 }
 
-/// Split a profile-style string into paragraphs on blank lines, matching the
-/// reference's `profile.split(/\n\s*\n/)`.
-pub fn paragraphs(text: &str) -> Vec<String> {
-    let mut out = Vec::new();
-    let mut current: Vec<&str> = Vec::new();
-
-    for line in text.lines() {
-        if line.trim().is_empty() {
-            if !current.is_empty() {
-                out.push(current.join(" "));
-                current.clear();
-            }
-        } else {
-            current.push(line.trim());
-        }
-    }
-    if !current.is_empty() {
-        out.push(current.join(" "));
-    }
-
-    out.into_iter().filter(|p| !p.trim().is_empty()).collect()
-}
-
 /// Split `items` into `rows` groups of roughly equal length, preserving order.
 /// Mirrors the reference `chunk()` in `InlineListBlock`.
 pub fn chunk(items: &[String], rows: usize) -> Vec<Vec<String>> {
@@ -388,19 +365,6 @@ mod tests {
         let style = body();
         let lines = wrap("supercalifragilisticexpialidocious", 20.0, &style);
         assert_eq!(lines, vec!["supercalifragilisticexpialidocious"]);
-    }
-
-    #[test]
-    fn splits_paragraphs_on_blank_lines() {
-        assert_eq!(
-            paragraphs("one\n\ntwo\n\n\nthree"),
-            vec!["one", "two", "three"]
-        );
-        assert_eq!(
-            paragraphs("wrapped\nacross lines"),
-            vec!["wrapped across lines"]
-        );
-        assert!(paragraphs("   \n\n  ").is_empty());
     }
 
     #[test]

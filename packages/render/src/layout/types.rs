@@ -5,6 +5,7 @@
 //! at the moment of drawing. That keeps every metric in this crate directly
 //! comparable with the reference stylesheet.
 
+use oxidize_pdf::structure::{StandardStructureType, StructTree, StructureElement};
 use oxidize_pdf::{Document, Page};
 
 use crate::layout::utils::{advances, encode, kern_between, run_boundaries, text_width, wrap};
@@ -22,17 +23,73 @@ struct RuleSpan {
 pub struct Renderer<'a> {
     doc: &'a mut Document,
     page: Page,
+    /// Index of the page being built, needed to attach marked content to the
+    /// structure tree.
+    page_index: usize,
     cursor: f64,
     rule: Option<RuleSpan>,
+    /// The Tagged PDF structure tree. Every line of text is emitted inside a
+    /// marked-content sequence whose id is attached to the element on top of
+    /// `open`, so extractors get a logical document rather than loose glyphs.
+    tree: StructTree,
+    open: Vec<usize>,
 }
 
 impl<'a> Renderer<'a> {
     pub fn new(doc: &'a mut Document) -> Self {
+        let mut tree = StructTree::new();
+        let root = tree.set_root(StructureElement::new(StandardStructureType::Document));
+
         Self {
             doc,
             page: Page::a4(),
+            page_index: 0,
             cursor: PAGE_PADDING,
             rule: None,
+            tree,
+            open: vec![root],
+        }
+    }
+
+    // ---- document structure ----
+
+    /// Open a structure element. Text drawn until the matching [`Self::pop`] is
+    /// attached to it.
+    pub fn push(&mut self, structure_type: StandardStructureType) {
+        let parent = *self.open.last().expect("the root element is never popped");
+        if let Ok(index) = self
+            .tree
+            .add_child(parent, StructureElement::new(structure_type))
+        {
+            self.open.push(index);
+        }
+    }
+
+    /// Close the innermost structure element.
+    pub fn pop(&mut self) {
+        // The root is pushed at construction and must outlive every section.
+        if self.open.len() > 1 {
+            self.open.pop();
+        }
+    }
+
+    /// The PDF tag name for the element currently receiving content.
+    fn current_tag(&self) -> String {
+        self.open
+            .last()
+            .and_then(|index| self.tree.get(*index))
+            .map_or_else(
+                || StandardStructureType::P.as_pdf_name().to_string(),
+                |element| element.structure_type.as_pdf_name().to_string(),
+            )
+    }
+
+    fn attach(&mut self, mcid: u32) {
+        let page_index = self.page_index;
+        if let Some(index) = self.open.last()
+            && let Some(element) = self.tree.get_mut(*index)
+        {
+            element.add_mcid(page_index, mcid);
         }
     }
 
@@ -83,12 +140,17 @@ impl<'a> Renderer<'a> {
 
         let finished = std::mem::replace(&mut self.page, Page::a4());
         self.doc.add_page(finished);
+        self.page_index += 1;
         self.cursor = PAGE_PADDING;
     }
 
-    /// Emit the final page. Consumes the renderer.
-    pub fn finish(self) {
+    /// Emit the final page and, when tagging is enabled, install the structure
+    /// tree. Consumes the renderer.
+    pub fn finish(self, tagged: bool) {
         self.doc.add_page(self.page);
+        if tagged {
+            self.doc.set_struct_tree(self.tree);
+        }
     }
 
     // ---- text ----
@@ -164,6 +226,11 @@ impl<'a> Renderer<'a> {
         let size = style.size;
         let letter_spacing = style.letter_spacing;
 
+        // Wrap the line in a marked-content sequence so it belongs to a node of
+        // the structure tree rather than floating loose on the page.
+        let tag = self.current_tag();
+        let mcid = self.page.begin_marked_content(&tag).ok();
+
         let text_ctx = self.page.text();
         text_ctx
             .set_font(font, size)
@@ -174,6 +241,11 @@ impl<'a> Renderer<'a> {
         for (run_origin, run_text) in runs {
             text_ctx.at(run_origin, y);
             let _ = text_ctx.write(&run_text);
+        }
+
+        let _ = self.page.end_marked_content();
+        if let Some(mcid) = mcid {
+            self.attach(mcid);
         }
     }
 

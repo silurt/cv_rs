@@ -1,4 +1,7 @@
-//! The block vocabulary, mirroring the reference `blocks/types.ts`.
+//! The document model: the shapes a CV section can take.
+//!
+//! Deliberately format-independent — the PDF and DOCX backends both consume
+//! this, so a change to what a section *is* happens in one place.
 //!
 //! A section renders exactly one block. Adding a rendering shape means adding a
 //! variant here and a match arm in `utils::render_block` — nothing else changes.

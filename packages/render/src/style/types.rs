@@ -220,7 +220,3 @@ pub const ENTRY_PLAIN_MARGIN_BOTTOM: f64 = 8.0;
 pub const LABEL_VALUE_ROW_MARGIN_BOTTOM: f64 = 4.0;
 pub const LABEL_VALUE_LABEL_WIDTH: f64 = 130.0;
 pub const LABEL_VALUE_SPACER: f64 = 6.0;
-
-/// Per-section nudges: `techLeadershipSection`, `technicalSkillsSection`.
-pub const TECH_LEADERSHIP_MARGIN_TOP: f64 = 4.0;
-pub const TECHNICAL_SKILLS_MARGIN_TOP: f64 = 8.0;

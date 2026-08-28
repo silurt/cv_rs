@@ -1,14 +1,100 @@
-//! The document, in order — a port of the reference `cvSections.ts`.
+//! The document, in order.
+//!
+//! Reordering, retitling or removing a section is an edit to `build_sections`;
+//! no rendering code changes. A section with no data returns nothing and takes
+//! its heading with it.
 //!
 //! Reordering, retitling or removing a section is an edit to `build_sections`;
 //! no rendering code changes. A section whose data is empty returns `None` and
 //! takes its heading with it.
 
-use core::schema::types::{CVEducation, CVExperience, CVSchema, CVTechnicalSkills};
+use crate::schema::types::{
+    CVEducation, CVExperience, CVLinks, CVPerson, CVSchema, CVTechnicalSkills,
+};
 
-use crate::block::types::{Block, Entry, EntryVariant, LabelValueRow, ProseVariant, Section};
-use crate::layout::utils::paragraphs;
-use crate::style::types::{TECH_LEADERSHIP_MARGIN_TOP, TECHNICAL_SKILLS_MARGIN_TOP};
+use crate::document::types::{Block, Entry, EntryVariant, LabelValueRow, ProseVariant, Section};
+
+/// Strip the scheme and `www.` from a link, matching the reference's
+/// `normalizeLink`.
+pub fn normalize_link(value: &str) -> String {
+    let trimmed = value
+        .trim()
+        .trim_start_matches("https://")
+        .trim_start_matches("http://");
+    trimmed.trim_start_matches("www.").to_string()
+}
+
+fn format_github(value: &str) -> String {
+    let normalized = normalize_link(value);
+    if normalized.starts_with("github.com/") {
+        format!("GitHub: {normalized}")
+    } else {
+        format!("GitHub: github.com/{normalized}")
+    }
+}
+
+fn format_linkedin(value: &str) -> String {
+    let normalized = normalize_link(value);
+    if normalized.starts_with("linkedin.com/") {
+        format!("LinkedIn: {normalized}")
+    } else {
+        let handle = normalized.trim_start_matches("in/");
+        format!("LinkedIn: linkedin.com/{handle}")
+    }
+}
+
+fn format_portfolio(value: &str) -> String {
+    format!("Portfolio: {}", normalize_link(value))
+}
+
+/// The contact items, in reference order, with empties dropped.
+pub fn contact_items(person: &CVPerson, links: &CVLinks) -> Vec<String> {
+    let mut items = vec![person.location.clone()];
+
+    if !person.email.trim().is_empty() {
+        items.push(format!("Email: {}", person.email));
+    }
+    // The public schema carries no phone at all; an unconditional line here
+    // would render "Phone: " with nothing after it.
+    if let Some(phone) = person.phone.as_ref().filter(|p| !p.trim().is_empty()) {
+        items.push(format!("Phone: {phone}"));
+    }
+    if !links.github.trim().is_empty() {
+        items.push(format_github(&links.github));
+    }
+    if !links.linkedin.trim().is_empty() {
+        items.push(format_linkedin(&links.linkedin));
+    }
+    if !links.portfolio.trim().is_empty() {
+        items.push(format_portfolio(&links.portfolio));
+    }
+
+    items.retain(|item| !item.trim().is_empty());
+    items
+}
+
+/// Split a profile-style string into paragraphs on blank lines, matching the
+/// reference's `profile.split(/\n\s*\n/)`.
+pub fn paragraphs(text: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut current: Vec<&str> = Vec::new();
+
+    for line in text.lines() {
+        if line.trim().is_empty() {
+            if !current.is_empty() {
+                out.push(current.join(" "));
+                current.clear();
+            }
+        } else {
+            current.push(line.trim());
+        }
+    }
+    if !current.is_empty() {
+        out.push(current.join(" "));
+    }
+
+    out.into_iter().filter(|p| !p.trim().is_empty()).collect()
+}
 
 const SEPARATOR: &str = " \u{00b7} ";
 const EM_DASH: &str = "\u{2014}";
@@ -141,7 +227,7 @@ pub fn build_sections(schema: &CVSchema) -> Vec<Section> {
                     trailing_spacer: false,
                 },
             )
-            .with_margin_top(TECH_LEADERSHIP_MARGIN_TOP),
+            .with_margin_top(4.0),
         );
     }
 
@@ -192,8 +278,7 @@ pub fn build_sections(schema: &CVSchema) -> Vec<Section> {
     let rows = skill_rows(&schema.technical_skills);
     if !rows.is_empty() {
         sections.push(
-            Section::new("Technical Skills", Block::LabelValue { rows })
-                .with_margin_top(TECHNICAL_SKILLS_MARGIN_TOP),
+            Section::new("Technical Skills", Block::LabelValue { rows }).with_margin_top(8.0),
         );
     }
 
@@ -233,7 +318,81 @@ pub fn build_sections(schema: &CVSchema) -> Vec<Section> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use core::schema::types::CVLanguage;
+    use crate::schema::types::{CVLanguage, CVLinks, CVPerson};
+
+    fn person() -> CVPerson {
+        CVPerson {
+            name: "Ada Lovelace".into(),
+            location: "London, UK".into(),
+            email: "ada@example.com".into(),
+            phone: Some("+44 20 7946 0000".into()),
+        }
+    }
+
+    #[test]
+    fn normalises_link_schemes() {
+        assert_eq!(normalize_link("https://github.com/x"), "github.com/x");
+        assert_eq!(normalize_link("http://www.example.com"), "example.com");
+        assert_eq!(normalize_link("www.example.com"), "example.com");
+    }
+
+    #[test]
+    fn formats_links_without_doubling_the_host() {
+        assert_eq!(
+            format_github("https://github.com/x"),
+            "GitHub: github.com/x"
+        );
+        assert_eq!(format_github("x"), "GitHub: github.com/x");
+        assert_eq!(
+            format_linkedin("www.linkedin.com/in/x"),
+            "LinkedIn: linkedin.com/in/x"
+        );
+        assert_eq!(format_linkedin("in/x"), "LinkedIn: linkedin.com/x");
+        assert_eq!(format_portfolio("https://x.dev"), "Portfolio: x.dev");
+    }
+
+    #[test]
+    fn drops_empty_contact_fields() {
+        let links = CVLinks {
+            github: "https://github.com/x".into(),
+            linkedin: String::new(),
+            portfolio: "   ".into(),
+        };
+        let items = contact_items(&person(), &links);
+        assert_eq!(
+            items,
+            vec![
+                "London, UK",
+                "Email: ada@example.com",
+                "Phone: +44 20 7946 0000",
+                "GitHub: github.com/x",
+            ]
+        );
+    }
+
+    #[test]
+    fn omits_the_phone_line_when_there_is_no_phone() {
+        let mut without = person();
+        without.phone = None;
+        let items = contact_items(&without, &CVLinks::default());
+        assert!(
+            !items.iter().any(|item| item.starts_with("Phone")),
+            "a public CV must not render an empty phone line: {items:?}"
+        );
+    }
+
+    #[test]
+    fn splits_paragraphs_on_blank_lines() {
+        assert_eq!(
+            paragraphs("one\n\ntwo\n\n\nthree"),
+            vec!["one", "two", "three"]
+        );
+        assert_eq!(
+            paragraphs("wrapped\nacross lines"),
+            vec!["wrapped across lines"]
+        );
+        assert!(paragraphs("   \n\n  ").is_empty());
+    }
 
     #[test]
     fn shortens_year_month_dates_only() {
